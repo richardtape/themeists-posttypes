@@ -174,7 +174,7 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 
 				//If we're using a themeists theme, the cpt icon will be in the theme assets folder
 				if( $this->using_themeists_theme )
-					$cpt_args['menu_icon'] = get_stylesheet_directory_uri() . '/_a/images/icon-project-16.png';
+					$cpt_args['menu_icon'] = get_stylesheet_directory_uri() . '/assets/images/icon-project-16.png';
 
 				//Run our CPTs arguments through a filter so we can customise this externally
 				$cpt_args = 				apply_filters( 'ff_project_cpt_args', $cpt_args );
@@ -337,7 +337,7 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 				'priority'   => 'default', //core, high, default or low
 				'show_names' => true, // Show field names on the left
 				'fields' => array(
-					array( 'id' => $prefix . 'show_below_menu_above_content_metabox', 'name' => __( 'Show Sidebar', THEMENAME ), 'type' => 'checkbox', 'cols' => 12, 'repeatable' => false, 'std' => apply_filters( 'autify_show_below_menu_above_content_sidebar_by_default', 1 ), 'desc' => __( 'If this checkbox is ticked then the sidebar called "Below Menu Above Content" will be shown (as long as it contains widgets). You are able to replace this sidebar on a page-by-page basis.', THEMENAME ) )
+					array( 'id' => $prefix . 'show_below_menu_above_content_metabox', 'name' => __( 'Show Sidebar', THEMENAME ), 'type' => 'checkbox', 'cols' => 12, 'repeatable' => false, 'default' => apply_filters( 'autify_show_below_menu_above_content_sidebar_by_default', 1 ), 'desc' => __( 'If this checkbox is ticked then the sidebar called "Below Menu Above Content" will be shown (as long as it contains widgets). You are able to replace this sidebar on a page-by-page basis.', THEMENAME ) )
 				)
 			);
 
