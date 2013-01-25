@@ -57,6 +57,17 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 		 */
 
 		var $clients_taxonomy_default = "Client";
+
+
+		/**
+		 * Project Type taxonomy for the Project post type, CT name default, overwritable by filters
+		 *
+		 * @author Richard Tape
+		 * @package ThemeistsPostTypes
+		 * @since 1.0
+		 */
+
+		var $project_type_taxonomy_default = "project-type";
 		
 
 		/**
@@ -94,6 +105,7 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 				//These 2 functions alter the project cpt and client tax based on the optins set in the back end.
 				add_filter( 'ff_project_cpt_name', array( &$this, 'adjust_project_cpt_based_on_option' ), 10, 1 );
 				add_filter( 'ff_client_tax_name', array( &$this, 'adjust_clients_tax_based_on_option' ), 10, 1 );
+				add_filter( 'ff_project_type_tax_name', array( &$this, 'adjust_project_type_tax_based_on_option' ), 10, 1 );
 
 			}
 
@@ -101,6 +113,36 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 
 			//Add a link to our home page in the meta line of the plugin activation page
 			add_filter( 'plugin_row_meta', array( &$this, 'add_meta_link' ), 10, 2 );
+
+			if( function_exists( 'wp_get_theme' ) )
+			{
+
+				//We're using WordPress version 3.4+
+				$theme_data = wp_get_theme();
+
+				if( !defined( 'THEMENAME' ) )
+					define( 'THEMENAME', $theme_data->Template );
+				
+				if( !defined( 'THEMEVERSION' ) )
+					define( 'THEMEVERSION', $theme_data->Version );
+
+			}
+			else
+			{
+
+				//We're using WP < 3.4 so don't have access to the wp_get_theme class
+				$theme_data = get_theme_data( get_template_directory() . '/style.css' );
+
+				if( !defined( 'THEMENAME' ) )
+					define( 'THEMENAME', $theme_data['Template'] );
+				
+				if( !defined( 'THEMEVERSION' ) )
+					define( 'THEMEVERSION', $theme_data['Version'] );
+
+			}
+
+			//Load the widgets
+			add_action( 'widgets_init', array( &$this, 'load_widgets' ), 1 );
 
 
 		}/* ThemeistsPostTypes() */
@@ -126,7 +168,7 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 			$cpts = get_theme_support( 'custom-post-types' );
 
 			//If we have 'project' cpt support or we're not on a themeists theme, register this CPT
-			if( ( in_array( 'project', $cpts[0] ) ) || ( !$this->using_themeists_theme ) )
+			if( ( is_array( $cpts ) ) && ( in_array( 'project', $cpts[0] ) ) || ( !$this->using_themeists_theme ) )
 			{
 
 				//This CPT's *singular* name - run it through a filter
@@ -149,7 +191,7 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 					'not_found' =>  		__( 'No ' . $this->ff_pluralize_string( $cpt_name ) . ' found', THEMENAME ),
 					'not_found_in_trash' => __( 'No ' . $this->ff_pluralize_string( $cpt_name ) . ' found in Trash', THEMENAME ), 
 					'parent_item_colon' => 	'',
-					'menu_name' => 			__( $this->ff_pluralize_string( $cpt_name ) , THEMENAME )
+					'menu_name' => 			__( ucfirst( $this->ff_pluralize_string( $cpt_name ) ) , THEMENAME )
 
 				);
 
@@ -206,7 +248,8 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 			$cts = get_theme_support( 'custom-taxonomies' );
 			
 			//If we have 'project' cpt support and have an appropriate CT or we're not on a themeists theme, register this CPT
-			if( ( in_array( 'clients', $cts[0]["project"] ) ) || ( !$this->using_themeists_theme ) )
+			//The client taxonomy
+			if( ( is_array( $cts ) ) && ( in_array( 'clients', $cts[0]["project"] ) ) || ( !$this->using_themeists_theme ) )
 			{
 
 				//This CPT's *singular* name - run it through a filter
@@ -247,6 +290,54 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 
 				//Run the CT Arguments through a filter so we can adjust them externally
 				$tax_args = 							apply_filters( 'ff_client_tax_args', $tax_args );
+
+				//Register our custom taxonomy
+				$register_tax = 						register_taxonomy( $this->ff_uglify_string( $taxonomy_name ), $this->ff_uglify_string( $this->project_post_type_default ), $tax_args );
+
+			}
+
+			//The project type taxonomy
+			if( ( is_array( $cts ) ) && ( in_array( 'project-type', $cts[0]["project"] ) ) || ( !$this->using_themeists_theme ) )
+			{
+
+				//This CPT's *singular* name - run it through a filter
+				$default_name = $this->project_type_taxonomy_default;
+				$this->project_type_taxonomy_default = apply_filters( 'ff_project_type_taxonomy_name', $default_name, $default_name );
+				$taxonomy_name = $this->project_type_taxonomy_default;
+
+				//CT Labels
+				$tax_labels = array(
+
+					'name' => 							__( $this->ff_pluralize_string( $taxonomy_name ), THEMENAME ),
+					'singular_name' => 					__( $taxonomy_name, THEMENAME ),
+					'search_items' => 					__( 'Search ' . $this->ff_pluralize_string( $taxonomy_name ) , THEMENAME ),
+					'popular_items' => 					__( 'Popular ' . $this->ff_pluralize_string( $taxonomy_name ) , THEMENAME ),
+					'all_items' => 						__( 'All ' . $this->ff_pluralize_string( $taxonomy_name ) , THEMENAME ),
+					'parent_item' => 					null,
+					'parent_item_colon' => 				null,
+					'edit_item' => 						__( 'Edit ' . $taxonomy_name , THEMENAME ), 
+					'update_item' => 					__( 'Update ' . $taxonomy_name , THEMENAME ),
+					'add_new_item' => 					__( 'Add New ' . $taxonomy_name , THEMENAME ),
+					'new_item_name' => 					__( 'New ' . $taxonomy_name . ' Name', THEMENAME ),
+					'separate_items_with_commas' => 	__( 'Separate ' . $this->ff_pluralize_string( $taxonomy_name ) . ' with commas', THEMENAME ),
+					'add_or_remove_items' => 			__( 'Add or remove ' . $this->ff_pluralize_string( $taxonomy_name ) , THEMENAME ),
+					'choose_from_most_used' => 			__( 'Choose from the most used ' . $this->ff_pluralize_string( $taxonomy_name ) , THEMENAME ),
+					'menu_name' => 						__( $this->ff_pluralize_string( $taxonomy_name ) , THEMENAME )
+
+				);
+
+				//CT Arguments
+				$tax_args = array(
+
+					'hierarchical' =>					false,
+					'labels' => 						$tax_labels,
+					'show_ui' => 						true,
+					'query_var' => 						true
+
+				);
+
+				//Run the CT Arguments through a filter so we can adjust them externally
+				$tax_args = 							apply_filters( 'ff_project_type_tax_args', $tax_args );
 
 				//Register our custom taxonomy
 				$register_tax = 						register_taxonomy( $this->ff_uglify_string( $taxonomy_name ), $this->ff_uglify_string( $this->project_post_type_default ), $tax_args );
@@ -302,7 +393,7 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 		 * This function actually adds the metaboxes. It is called by the register_cpt_metaboxes() method above.
 		 *
 		 * @author Richard Tape
-		 * @package 
+		 * @package ThemeistsPostTypes
 		 * @since 1.0
 		 * @param (array) $metaboxes - The already created metaboxes
 	 	* @return $meta_boxes - The array of meta boxes that we've just added to 
@@ -314,6 +405,7 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 			// Start with an underscore to hide fields from custom fields list
 			$prefix = '_';
 
+			//Add the testimonials box with fields for client name, company name and a quote
 			$meta_boxes[] = array(
 				'title' => 'Testimonials',
 				'pages' => 'project',
@@ -321,23 +413,21 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 				'priority'   => 'high',
 				'show_names' => true, // Show field names on the left
 				'fields' => array(
-					array( 'id' => $prefix . 'quotee', 'name' => 'Client Name', 'type' => 'text', 'cols' => 12, 'repeatable' => false, 'desc' => 'Test' ),
+					array( 'id' => $prefix . 'quotee', 'name' => 'Client Name', 'type' => 'text', 'cols' => 12, 'repeatable' => false/*, 'desc' => 'Test'*/ ),
 					array( 'id' => $prefix . 'company', 'name' => 'Company Name', 'type' => 'text', 'cols' => 12, 'repeatable' => false ),
 					array( 'id' => $prefix . 'testimonial', 'name' => 'Quote', 'type' => 'textarea', 'cols' => 12, 'repeatable' => false )
 				)
 			);
 
-
-
-			//Add the 'show Below Menu Above Content Sidebar' metabox
+			//Add the Project link metabox
 			$meta_boxes[] = array(
-				'title' => 'Show Below Menu but Above Content Sidebar',
-				'pages' => array( 'post', 'page', 'project' ),
-				'context'    => 'side', //normal, advanced or side
-				'priority'   => 'default', //core, high, default or low
+				'title' => 'Project Details',
+				'pages' => 'project',
+				'context'    => 'normal',
+				'priority'   => 'high',
 				'show_names' => true, // Show field names on the left
 				'fields' => array(
-					array( 'id' => $prefix . 'show_below_menu_above_content_metabox', 'name' => __( 'Show Sidebar', THEMENAME ), 'type' => 'checkbox', 'cols' => 12, 'repeatable' => false, 'default' => apply_filters( 'autify_show_below_menu_above_content_sidebar_by_default', 1 ), 'desc' => __( 'If this checkbox is ticked then the sidebar called "Below Menu Above Content" will be shown (as long as it contains widgets). You are able to replace this sidebar on a page-by-page basis.', THEMENAME ) )
+					array( 'id' => $prefix . 'project_link', 'name' => 'Project Link', 'type' => 'text', 'cols' => 12, 'repeatable' => false/*, 'desc' => 'Test'*/ )
 				)
 			);
 
@@ -353,7 +443,7 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 		 * current theme supports custom post types
 		 *
 		 * @author Richard Tape
-		 * @package Incipio
+		 * @package ThemeistsPostTypes
 		 * @since 1.0
 		 * @param None
 		 * @return None
@@ -384,6 +474,15 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 					'type' => 'text'
 				);
 
+				$options[] = array(
+					'name' => __('Project Type Taxonomy Slug', THEMENAME ),
+					'desc' => __('By default, the project post type has a custom taxonomy called "Project Type". If you want to rename that, simply change this option and save. You may need to visit settings>permalinks to make your changes stick.', THEMENAME ),
+					'id' => 'project_type_slug',
+					'std' => 'project-type',
+					'type' => 'text'
+				);
+				
+
 			endif;
 
 			// Post Type Options ============================================
@@ -398,7 +497,7 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 		 * adjust that, then we need to add a filter based on that option
 		 *
 		 * @author Richard Tape
-		 * @package Autify
+		 * @package ThemeistsPostTypes
 		 * @since 1.0
 		 * @param $default_name - the name
 		 * @return $project_slug - the project slug from the saved option
@@ -410,13 +509,9 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 			$chosen_project_name = $this->of_get_option( 'project_slug' );
 
 			if( $chosen_project_name == "" || $chosen_project_name === false )
-			{
 				return $default_name;
-			}
 			else
-			{
 				return $chosen_project_name;
-			}
 
 
 		}/* adjust_project_cpt_based_on_option() */
@@ -427,7 +522,7 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 		 * Adjust the client taxonomy if the option is changed using the ff_client_tax_name filter
 		 *
 		 * @author Richard Tape
-		 * @package Autify
+		 * @package ThemeistsPostTypes
 		 * @since 1.0
 		 * @param (string) $default_name - the default name of the taxonomy
 		 * @return $taxonomy_slug - the adjusted (or default) taxonomy slug
@@ -439,15 +534,24 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 			$chosen_tax_name = $this->of_get_option( 'clients_slug' );
 
 			if( $chosen_tax_name == "" || $chosen_tax_name === false )
-			{
 				return $default_name;
-			}
 			else
-			{
 				return $chosen_tax_name;
-			}
 
 		}/* adjust_clients_tax_based_on_option() */
+
+
+		function adjust_project_type_tax_based_on_option( $default_name )
+		{
+
+			$chosen_tax_name = $this->of_get_option( 'project_type_slug' );
+
+			if( $chosen_tax_name == "" || $chosen_tax_name === false )
+				return $default_name;
+			else
+				return $chosen_tax_name;
+
+		}/* adjust_project_type_tax_based_on_option() */
 		
 
 
@@ -455,7 +559,7 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 		 * When we activate the plugin, we make the post types, then we need to flush the permalinks
 		 *
 		 * @author Richard Tape
-		 * @package Incipio
+		 * @package ThemeistsPostTypes
 		 * @since 1.0
 		 * @param None
 		 * @return None
@@ -474,7 +578,7 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 		 * Add a link to our portfolio with a referrer so we know if people are clicking on the link to see more about us
 		 *
 		 * @author Richard Tape
-		 * @package Incipio
+		 * @package ThemeistsPostTypes
 		 * @since 1.0
 		 * @param (array) $links - list of links already on meta line. (string) $file - which plugin this is referring to
 		 * @return (array) $links - Modified array of links with our extra link
@@ -495,6 +599,25 @@ if( !class_exists( 'ThemeistsPostTypes' ) ):
 			return $links;
 
 		}/* add_meta_link */
+
+
+
+		/**
+		 * Load our widgets associated with these post type
+		 *
+		 * @author Richard Tape
+		 * @package ThemeistsPostTypes
+		 * @since 1.0
+		 * @param None
+		 * @return None
+		 */
+		
+		public function load_widgets()
+		{
+
+			include( 'widgets/testimonials.php' );
+
+		}/* load_widgets() */
 
 
 
